@@ -24,21 +24,31 @@ jobs:
     name: Build firmware
     runs-on: ubuntu-latest
     container:
-      image: espressif/idf:v6.1
+      image: espressif/idf:release-v6.1
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       - name: Build board
         shell: bash
         env:
-          BOARD_PATH: ${{ github.event.inputs.board_path }}
+          BOARD_INPUT: ${{ github.event.inputs.board_path }}
         run: |
-          BOARD="${BOARD_PATH:-main/boards/custom/robotweb-esp32s3-st7789}"
-          echo "Building: $BOARD"
+          BOARD="${BOARD_INPUT:-main/boards/custom/robotweb-esp32s3-st7789}"
+          echo "=== Building board: $BOARD ==="
           python scripts/build.py "$BOARD"
+          echo "=== Build complete ==="
 
-      - name: Upload firmware
+      - name: List build outputs
+        shell: bash
+        if: always()
+        run: |
+          echo "=== Build outputs ==="
+          find build/ -name "*.bin" -size +1k 2>/dev/null | head -20 || echo "No .bin found"
+
+      - name: Upload firmware artifacts
         uses: actions/upload-artifact@v3
         if: always()
         with:
