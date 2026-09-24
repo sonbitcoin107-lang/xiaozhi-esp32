@@ -1,0 +1,49 @@
+﻿name: Build Boards
+
+on:
+  workflow_dispatch:
+    inputs:
+      board_path:
+        description: Board directory to build
+        required: false
+        default: main/boards/custom/robotweb-esp32s3-st7789
+  push:
+    branches:
+      - main
+      - 'ci/**'
+      - 'robotweb/**'
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build firmware
+    runs-on: ubuntu-latest
+    container:
+      image: espressif/idf:v6.1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Build board
+        shell: bash
+        env:
+          BOARD_PATH: ${{ github.event.inputs.board_path }}
+        run: |
+          BOARD="${BOARD_PATH:-main/boards/custom/robotweb-esp32s3-st7789}"
+          echo "Building: $BOARD"
+          python scripts/build.py "$BOARD"
+
+      - name: Upload firmware
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: firmware-bin
+          path: |
+            build/merged-binary.bin
+            build/*.bin
+          retention-days: 7
