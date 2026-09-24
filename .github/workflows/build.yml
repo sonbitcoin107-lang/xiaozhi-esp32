@@ -3,10 +3,10 @@
 on:
   workflow_dispatch:
     inputs:
-      board_path:
-        description: Board directory to build
+      board_type:
+        description: Board type ID (from config.json board_type field)
         required: false
-        default: main/boards/custom/robotweb-esp32s3-st7789
+        default: robotweb-esp32s3-st7789
   push:
     branches:
       - main
@@ -36,12 +36,14 @@ jobs:
           esp_idf_version: v5.4.1
           target: esp32s3
           command: |
-            BOARD="${{ github.event.inputs.board_path }}"
-            BOARD="${BOARD:-main/boards/custom/robotweb-esp32s3-st7789}"
-            echo "=== Building: $BOARD ==="
+            BOARD="${{ github.event.inputs.board_type }}"
+            BOARD="${BOARD:-robotweb-esp32s3-st7789}"
+            echo "=== Building board_type: $BOARD ==="
             python scripts/build.py "$BOARD"
             echo "=== Done ==="
-            find build/ -name "*.bin" 2>/dev/null | head -10
+            echo "=== Output files ==="
+            find build/ -name "*.bin" -size +100k 2>/dev/null | head -20
+            find releases/ -name "*.zip" 2>/dev/null | head -10
 
       - name: Upload firmware
         uses: actions/upload-artifact@v4
@@ -51,5 +53,6 @@ jobs:
           path: |
             build/merged-binary.bin
             build/*.bin
+            releases/*.zip
           retention-days: 30
           if-no-files-found: warn
