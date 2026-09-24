@@ -44,7 +44,7 @@ static void motor_gpio_init() {
     ledc_channel_config(&cb);
     gpio_set_level(MOTOR_IN1,0); gpio_set_level(MOTOR_IN2,0);
     gpio_set_level(MOTOR_IN3,0); gpio_set_level(MOTOR_IN4,0);
-    ESP_LOGI(TAG, "Motor DC init OK (IN1=%d IN2=%d IN3=%d IN4=%d ENA=%d ENB=%d)",
+    ESP_LOGI(TAG, "Motor DC OK (IN1=%d IN2=%d IN3=%d IN4=%d ENA=%d ENB=%d)",
         (int)MOTOR_IN1,(int)MOTOR_IN2,(int)MOTOR_IN3,(int)MOTOR_IN4,(int)MOTOR_ENA,(int)MOTOR_ENB);
 }
 
@@ -54,8 +54,8 @@ static void motor_speed(uint8_t a, uint8_t b) {
     ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, b);
     ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
 }
-static void motor_forward(int s)  { gpio_set_level(MOTOR_IN1,1); gpio_set_level(MOTOR_IN2,0); gpio_set_level(MOTOR_IN3,1); gpio_set_level(MOTOR_IN4,0); motor_speed(s,s); ESP_LOGI(TAG,"Forward %d",s); }
-static void motor_backward(int s) { gpio_set_level(MOTOR_IN1,0); gpio_set_level(MOTOR_IN2,1); gpio_set_level(MOTOR_IN3,0); gpio_set_level(MOTOR_IN4,1); motor_speed(s,s); ESP_LOGI(TAG,"Backward %d",s); }
+static void motor_forward(int s)  { gpio_set_level(MOTOR_IN1,1); gpio_set_level(MOTOR_IN2,0); gpio_set_level(MOTOR_IN3,1); gpio_set_level(MOTOR_IN4,0); motor_speed(s,s); ESP_LOGI(TAG,"Fwd %d",s); }
+static void motor_backward(int s) { gpio_set_level(MOTOR_IN1,0); gpio_set_level(MOTOR_IN2,1); gpio_set_level(MOTOR_IN3,0); gpio_set_level(MOTOR_IN4,1); motor_speed(s,s); ESP_LOGI(TAG,"Bwd %d",s); }
 static void motor_left(int s)     { gpio_set_level(MOTOR_IN1,0); gpio_set_level(MOTOR_IN2,1); gpio_set_level(MOTOR_IN3,1); gpio_set_level(MOTOR_IN4,0); motor_speed(s,s); }
 static void motor_right(int s)    { gpio_set_level(MOTOR_IN1,1); gpio_set_level(MOTOR_IN2,0); gpio_set_level(MOTOR_IN3,0); gpio_set_level(MOTOR_IN4,1); motor_speed(s,s); }
 static void motor_stop()          { gpio_set_level(MOTOR_IN1,0); gpio_set_level(MOTOR_IN2,0); gpio_set_level(MOTOR_IN3,0); gpio_set_level(MOTOR_IN4,0); motor_speed(0,0); ESP_LOGI(TAG,"Stop"); }
@@ -115,8 +115,7 @@ private:
         esp_lcd_panel_swap_xy(panel, DISPLAY_SWAP_XY);
         esp_lcd_panel_mirror(panel, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y);
         display_ = new SpiLcdDisplay(panel_io, panel,
-            DISPLAY_WIDTH, DISPLAY_HEIGHT,
-            DISPLAY_OFFSET_X, DISPLAY_OFFSET_Y,
+            DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_OFFSET_X, DISPLAY_OFFSET_Y,
             DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y, DISPLAY_SWAP_XY);
     }
 
@@ -134,13 +133,14 @@ private:
         motor_gpio_init();
         auto& mcp = McpServer::GetInstance();
 
-        // Tool: di chuyen robot
+        // Tool: motor move — use explicit std::vector<Property> for GCC 15.2.0 compat
+        std::vector<Property> move_props = {
+            Property("direction", kPropertyTypeString),
+            Property("speed", kPropertyTypeInteger, 200)
+        };
         mcp.AddTool("self.motor.move",
-            "Control robot movement. direction: forward/backward/left/right/stop. speed: 0-255.",
-            PropertyList({
-                Property("direction", kPropertyTypeString),
-                Property("speed", kPropertyTypeInteger, 200)
-            }),
+            "Control robot movement. direction: forward/backward/left/right/stop. speed: 0-255 (default 200).",
+            PropertyList(move_props),
             [](const PropertyList& props) -> ReturnValue {
                 std::string dir = props["direction"].value<std::string>();
                 int spd = props["speed"].value<int>();
@@ -155,7 +155,7 @@ private:
             }
         );
 
-        // Tool: dung dong co
+        // Tool: stop
         mcp.AddTool("self.motor.stop",
             "Stop all motors immediately.",
             PropertyList(),
@@ -174,7 +174,7 @@ public:
         InitializeButtons();
         InitializeTools();
         GetBacklight()->SetBrightness(100);
-        ESP_LOGI(TAG, "Robotweb ESP32-S3 ST7789 board ready");
+        ESP_LOGI(TAG, "Robotweb ESP32-S3 ST7789 ready");
     }
 
     virtual Led* GetLed() override {
