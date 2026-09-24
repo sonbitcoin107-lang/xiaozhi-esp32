@@ -24,7 +24,7 @@
 
 #define TAG "RobowebBoard"
 
-// ===== Motor DC Helper Functions =====
+// ===== Motor DC helper functions =====
 static void motor_gpio_init() {
     uint64_t mask = (1ULL<<(int)MOTOR_IN1)|(1ULL<<(int)MOTOR_IN2)|
                     (1ULL<<(int)MOTOR_IN3)|(1ULL<<(int)MOTOR_IN4);
@@ -32,23 +32,20 @@ static void motor_gpio_init() {
         .pull_up_en=GPIO_PULLUP_DISABLE, .pull_down_en=GPIO_PULLDOWN_DISABLE,
         .intr_type=GPIO_INTR_DISABLE};
     gpio_config(&c);
-
     ledc_timer_config_t t = {.speed_mode=LEDC_LOW_SPEED_MODE,
         .duty_resolution=LEDC_TIMER_8_BIT, .timer_num=LEDC_TIMER_0,
         .freq_hz=1000, .clk_cfg=LEDC_AUTO_CLK};
     ledc_timer_config(&t);
-
     ledc_channel_config_t ca = {.gpio_num=(int)MOTOR_ENA, .speed_mode=LEDC_LOW_SPEED_MODE,
         .channel=LEDC_CHANNEL_0, .timer_sel=LEDC_TIMER_0, .duty=0, .hpoint=0};
     ledc_channel_config(&ca);
     ledc_channel_config_t cb = {.gpio_num=(int)MOTOR_ENB, .speed_mode=LEDC_LOW_SPEED_MODE,
         .channel=LEDC_CHANNEL_1, .timer_sel=LEDC_TIMER_0, .duty=0, .hpoint=0};
     ledc_channel_config(&cb);
-
-    // Stop motors at init
     gpio_set_level(MOTOR_IN1,0); gpio_set_level(MOTOR_IN2,0);
     gpio_set_level(MOTOR_IN3,0); gpio_set_level(MOTOR_IN4,0);
-    ESP_LOGI(TAG, "Motor DC init OK");
+    ESP_LOGI(TAG, "Motor DC init OK (IN1=%d IN2=%d IN3=%d IN4=%d ENA=%d ENB=%d)",
+        (int)MOTOR_IN1,(int)MOTOR_IN2,(int)MOTOR_IN3,(int)MOTOR_IN4,(int)MOTOR_ENA,(int)MOTOR_ENB);
 }
 
 static void motor_speed(uint8_t a, uint8_t b) {
@@ -63,7 +60,7 @@ static void motor_left(int s)     { gpio_set_level(MOTOR_IN1,0); gpio_set_level(
 static void motor_right(int s)    { gpio_set_level(MOTOR_IN1,1); gpio_set_level(MOTOR_IN2,0); gpio_set_level(MOTOR_IN3,0); gpio_set_level(MOTOR_IN4,1); motor_speed(s,s); }
 static void motor_stop()          { gpio_set_level(MOTOR_IN1,0); gpio_set_level(MOTOR_IN2,0); gpio_set_level(MOTOR_IN3,0); gpio_set_level(MOTOR_IN4,0); motor_speed(0,0); ESP_LOGI(TAG,"Stop"); }
 
-// ===== Board Class =====
+// ===== Board class =====
 class RobowebESP32S3ST7789 : public WifiBoard {
 private:
     Button boot_button_;
@@ -98,7 +95,6 @@ private:
     void InitializeLcdDisplay() {
         esp_lcd_panel_io_handle_t panel_io = nullptr;
         esp_lcd_panel_handle_t panel = nullptr;
-
         esp_lcd_panel_io_spi_config_t io_cfg = {};
         io_cfg.cs_gpio_num = DISPLAY_CS_PIN;
         io_cfg.dc_gpio_num = DISPLAY_DC_PIN;
@@ -108,19 +104,16 @@ private:
         io_cfg.lcd_cmd_bits = 8;
         io_cfg.lcd_param_bits = 8;
         ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi(LCD_SPI_HOST, &io_cfg, &panel_io));
-
         esp_lcd_panel_dev_config_t panel_cfg = {};
         panel_cfg.reset_gpio_num = DISPLAY_RST_PIN;
         panel_cfg.rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB;
         panel_cfg.bits_per_pixel = 16;
         ESP_ERROR_CHECK(esp_lcd_new_panel_st7789(panel_io, &panel_cfg, &panel));
-
         esp_lcd_panel_reset(panel);
         esp_lcd_panel_init(panel);
         esp_lcd_panel_invert_color(panel, DISPLAY_INVERT_COLOR);
         esp_lcd_panel_swap_xy(panel, DISPLAY_SWAP_XY);
         esp_lcd_panel_mirror(panel, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y);
-
         display_ = new SpiLcdDisplay(panel_io, panel,
             DISPLAY_WIDTH, DISPLAY_HEIGHT,
             DISPLAY_OFFSET_X, DISPLAY_OFFSET_Y,
@@ -139,36 +132,36 @@ private:
 
     void InitializeTools() {
         motor_gpio_init();
-
         auto& mcp = McpServer::GetInstance();
 
-        // Tool: di chuyen
+        // Tool: di chuyen robot
         mcp.AddTool("self.motor.move",
             "Control robot movement. direction: forward/backward/left/right/stop. speed: 0-255.",
             PropertyList({
-                Property("direction", kPropertyTypeString, "forward/backward/left/right/stop"),
-                Property("speed", kPropertyTypeNumber, "0-255, default 200")
+                Property("direction", kPropertyTypeString),
+                Property("speed", kPropertyTypeInteger, 200)
             }),
             [](const PropertyList& props) -> ReturnValue {
                 std::string dir = props["direction"].value<std::string>();
-                int spd = props.count("speed") ? (int)props["speed"].value<double>() : 200;
-                if (spd < 0) spd = 0; if (spd > 255) spd = 255;
+                int spd = props["speed"].value<int>();
+                if (spd < 0) spd = 0;
+                if (spd > 255) spd = 255;
                 if      (dir == "forward")  motor_forward(spd);
                 else if (dir == "backward") motor_backward(spd);
                 else if (dir == "left")     motor_left(spd);
                 else if (dir == "right")    motor_right(spd);
-                else                         motor_stop();
-                return dir;
+                else                        motor_stop();
+                return std::string("motor:") + dir;
             }
         );
 
-        // Tool: dung
+        // Tool: dung dong co
         mcp.AddTool("self.motor.stop",
             "Stop all motors immediately.",
-            PropertyList({}),
+            PropertyList(),
             [](const PropertyList&) -> ReturnValue {
                 motor_stop();
-                return "stopped";
+                return std::string("stopped");
             }
         );
     }
@@ -181,7 +174,7 @@ public:
         InitializeButtons();
         InitializeTools();
         GetBacklight()->SetBrightness(100);
-        ESP_LOGI(TAG, "Robotweb ESP32-S3 ST7789 board initialized");
+        ESP_LOGI(TAG, "Robotweb ESP32-S3 ST7789 board ready");
     }
 
     virtual Led* GetLed() override {
