@@ -1,0 +1,6 @@
+{
+    "board_type":  "robotweb-esp32s3-st7789",
+    "flash":  "16m",
+    "chip":  "esp32s3",
+    "psram":  "8m"
+}
