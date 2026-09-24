@@ -1,6 +1,6 @@
 {
-    "type": "robotweb-esp32s3-st7789",
     "manufacturer": "custom",
+    "type": "robotweb-esp32s3-st7789",
     "target": "esp32s3",
     "builds": [
         {
