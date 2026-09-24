@@ -7,10 +7,6 @@ on:
         description: Board directory
         required: false
         default: custom/robotweb-esp32s3-st7789
-  push:
-    branches:
-      - main
-      - 'robotweb/**'
 
 permissions:
   contents: read
@@ -37,12 +33,24 @@ jobs:
           BOARD="${{ github.event.inputs.board_type || 'custom/robotweb-esp32s3-st7789' }}"
           echo "=== Building: $BOARD ==="
           python scripts/build.py "$BOARD" --name robotweb-esp32s3-st7789
-          echo "=== Output files ==="
-          find releases/ -name "*.zip" 2>/dev/null | head -5
+          echo "=== Build done — collecting artifacts ==="
+          mkdir -p releases
+          # scripts/build.py puts merged-binary.bin in build/
+          if [ -f "build/merged-binary.bin" ]; then
+            cp build/merged-binary.bin releases/robotweb-esp32s3-st7789-merged.bin
+            echo "Copied merged-binary.bin"
+          fi
+          # Also collect individual bins
+          for f in build/bootloader/bootloader.bin build/partition_table/partition-table.bin build/xiaozhi.bin; do
+            [ -f "$f" ] && cp "$f" releases/ && echo "Copied: $f"
+          done
+          # Check for zip from scripts/build.py
+          find . -name "*.zip" 2>/dev/null | head -5 | xargs -I{} cp {} releases/ 2>/dev/null || true
+          ls -lh releases/
 
       - name: Upload firmware
         uses: actions/upload-artifact@v4
-        if: success()
+        if: always()
         with:
           name: robotweb-firmware-${{ github.run_number }}
           path: releases/
