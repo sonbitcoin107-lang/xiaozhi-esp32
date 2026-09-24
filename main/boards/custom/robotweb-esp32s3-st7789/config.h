@@ -6,14 +6,12 @@
 // ===== Audio (I2S + ES8311) =====
 #define AUDIO_INPUT_SAMPLE_RATE  24000
 #define AUDIO_OUTPUT_SAMPLE_RATE 24000
-
 #define AUDIO_I2S_GPIO_MCLK   GPIO_NUM_4
 #define AUDIO_I2S_GPIO_BCLK   GPIO_NUM_5
 #define AUDIO_I2S_GPIO_DIN    GPIO_NUM_6
 #define AUDIO_I2S_GPIO_WS     GPIO_NUM_7
 #define AUDIO_I2S_GPIO_DOUT   GPIO_NUM_8
 #define AUDIO_CODEC_PA_PIN    GPIO_NUM_1
-
 #define AUDIO_CODEC_I2C_NUM      I2C_NUM_0
 #define AUDIO_CODEC_I2C_SCL_PIN  GPIO_NUM_15
 #define AUDIO_CODEC_I2C_SDA_PIN  GPIO_NUM_16
@@ -28,7 +26,6 @@
 #define DISPLAY_BACKLIGHT_PIN GPIO_NUM_45
 #define DISPLAY_SPI_SCLK_HZ   (40 * 1000 * 1000)
 #define LCD_SPI_HOST          SPI3_HOST
-
 #define DISPLAY_WIDTH   240
 #define DISPLAY_HEIGHT  320
 #define DISPLAY_MIRROR_X  false
@@ -45,12 +42,12 @@
 #define BUILTIN_LED_GPIO  GPIO_NUM_48
 
 // ===== Motor DC L298N =====
-// Adjust these to match your actual wiring
+// ESP32-S3: GPIO 0-21 and 26-48 are valid (22-25 do NOT exist)
 #define MOTOR_IN1 GPIO_NUM_21
-#define MOTOR_IN2 GPIO_NUM_22
+#define MOTOR_IN2 GPIO_NUM_20
 #define MOTOR_IN3 GPIO_NUM_17
 #define MOTOR_IN4 GPIO_NUM_18
 #define MOTOR_ENA GPIO_NUM_19
-#define MOTOR_ENB GPIO_NUM_20
+#define MOTOR_ENB GPIO_NUM_26
 
 #endif // _BOARD_CONFIG_H_
