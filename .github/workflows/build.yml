@@ -21,6 +21,9 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: espressif/idf:v6.1
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,12 +33,12 @@ jobs:
 
       - name: Build firmware
         run: |
+          . /opt/esp/idf/export.sh
           BOARD="${{ github.event.inputs.board_type || 'custom/robotweb-esp32s3-st7789' }}"
           echo "=== Building: $BOARD ==="
           python scripts/build.py "$BOARD" --name robotweb-esp32s3-st7789
           echo "=== Output files ==="
           find releases/ -name "*.zip" 2>/dev/null | head -5
-          ls -lh releases/ 2>/dev/null || echo "No releases dir"
 
       - name: Upload firmware
         uses: actions/upload-artifact@v4
