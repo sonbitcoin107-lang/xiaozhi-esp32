@@ -4,17 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       board_type:
-        description: Board type ID (from config.json board_type field)
+        description: Board type (for reference)
         required: false
         default: robotweb-esp32s3-st7789
   push:
     branches:
       - main
       - 'robotweb/**'
-      - 'ci/**'
-  pull_request:
-    branches:
-      - main
 
 permissions:
   contents: read
@@ -30,20 +26,28 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      - name: Build with ESP-IDF
+      - name: Build with ESP-IDF (direct idf.py)
         uses: espressif/esp-idf-ci-action@v1
         with:
           esp_idf_version: v5.4.1
           target: esp32s3
           command: |
-            BOARD="${{ github.event.inputs.board_type }}"
-            BOARD="${BOARD:-robotweb-esp32s3-st7789}"
-            echo "=== Building board_type: $BOARD ==="
-            python scripts/build.py "$BOARD"
-            echo "=== Done ==="
-            echo "=== Output files ==="
+            echo "=== Setting up board config ==="
+            # Write board-specific sdkconfig overrides
+            cat > board_sdkconfig.defaults << 'EOF'
+            CONFIG_BOARD_TYPE_ROBOTWEB_ESP32S3_ST7789=y
+            CONFIG_SPIRAM=y
+            CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+            EOF
+            # Set target
+            idf.py set-target esp32s3
+            echo "=== Starting build ==="
+            idf.py -DBOARD_NAME=robotweb-esp32s3-st7789 \
+                   -DSDKCONFIG_DEFAULTS="sdkconfig.defaults;board_sdkconfig.defaults" \
+                   reconfigure build merge-bin
+            echo "=== Build complete ==="
             find build/ -name "*.bin" -size +100k 2>/dev/null | head -20
-            find releases/ -name "*.zip" 2>/dev/null | head -10
+            ls -lh build/merged-binary.bin 2>/dev/null || echo "No merged-binary.bin"
 
       - name: Upload firmware
         uses: actions/upload-artifact@v4
@@ -53,6 +57,5 @@ jobs:
           path: |
             build/merged-binary.bin
             build/*.bin
-            releases/*.zip
           retention-days: 30
           if-no-files-found: warn
