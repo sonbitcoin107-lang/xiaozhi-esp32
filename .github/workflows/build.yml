@@ -30,33 +30,24 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install ESP-IDF
+      - name: Build with ESP-IDF
         uses: espressif/esp-idf-ci-action@v1
         with:
-          esp_idf_version: v5.4
+          esp_idf_version: v5.4.1
           target: esp32s3
           command: |
             BOARD="${{ github.event.inputs.board_path }}"
             BOARD="${BOARD:-main/boards/custom/robotweb-esp32s3-st7789}"
-            echo "Building: $BOARD"
+            echo "=== Building: $BOARD ==="
             python scripts/build.py "$BOARD"
-
-      - name: List build outputs
-        if: always()
-        run: |
-          echo "=== Build outputs ==="
-          find . -name "*.bin" -size +1k 2>/dev/null | grep -v ".git" | head -20 || echo "No .bin found"
+            echo "=== Done ==="
+            find build/ -name "*.bin" 2>/dev/null | head -10
 
       - name: Upload firmware
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: firmware-${{ github.sha }}
+          name: firmware-${{ github.run_number }}
           path: |
             build/merged-binary.bin
             build/*.bin
