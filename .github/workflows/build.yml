@@ -1,12 +1,12 @@
-﻿name: Robotweb Build Firmware
+name: Robotweb Build Firmware
 
 on:
   workflow_dispatch:
     inputs:
       board_type:
-        description: Board type (for reference)
+        description: Board directory
         required: false
-        default: robotweb-esp32s3-st7789
+        default: custom/robotweb-esp32s3-st7789
   push:
     branches:
       - main
@@ -18,7 +18,9 @@ permissions:
 jobs:
   build:
     name: Build board firmware
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
+    container:
+      image: espressif/idf:v6.1
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,36 +28,20 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      - name: Build with ESP-IDF (direct idf.py)
-        uses: espressif/esp-idf-ci-action@v1
-        with:
-          esp_idf_version: v5.4.1
-          target: esp32s3
-          command: |
-            echo "=== Setting up board config ==="
-            # Write board-specific sdkconfig overrides
-            cat > board_sdkconfig.defaults << 'EOF'
-            CONFIG_BOARD_TYPE_ROBOTWEB_ESP32S3_ST7789=y
-            CONFIG_SPIRAM=y
-            CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
-            EOF
-            # Set target
-            idf.py set-target esp32s3
-            echo "=== Starting build ==="
-            idf.py -DBOARD_NAME=robotweb-esp32s3-st7789 \
-                   -DSDKCONFIG_DEFAULTS="sdkconfig.defaults;board_sdkconfig.defaults" \
-                   reconfigure build merge-bin
-            echo "=== Build complete ==="
-            find build/ -name "*.bin" -size +100k 2>/dev/null | head -20
-            ls -lh build/merged-binary.bin 2>/dev/null || echo "No merged-binary.bin"
+      - name: Build firmware
+        run: |
+          BOARD="${{ github.event.inputs.board_type || 'custom/robotweb-esp32s3-st7789' }}"
+          echo "=== Building: $BOARD ==="
+          python scripts/build.py "$BOARD" --name robotweb-esp32s3-st7789
+          echo "=== Output files ==="
+          find releases/ -name "*.zip" 2>/dev/null | head -5
+          ls -lh releases/ 2>/dev/null || echo "No releases dir"
 
       - name: Upload firmware
         uses: actions/upload-artifact@v4
-        if: always()
+        if: success()
         with:
-          name: firmware-${{ github.run_number }}
-          path: |
-            build/merged-binary.bin
-            build/*.bin
+          name: robotweb-firmware-${{ github.run_number }}
+          path: releases/
           retention-days: 30
           if-no-files-found: warn
