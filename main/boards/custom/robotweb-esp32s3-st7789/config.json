@@ -1,8 +1,15 @@
 {
-    "board_type": "robotweb-esp32s3-st7789",
-    "chip": "esp32s3",
-    "target": "esp32s3",
+    "type": "robotweb-esp32s3-st7789",
     "manufacturer": "custom",
-    "psram": "8m",
-    "flash": "16m"
+    "target": "esp32s3",
+    "builds": [
+        {
+            "name": "robotweb-esp32s3-st7789",
+            "sdkconfig_append": [
+                "CONFIG_BOARD_TYPE_ROBOTWEB_ESP32S3_ST7789=y",
+                "CONFIG_SPIRAM=y",
+                "CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y"
+            ]
+        }
+    ]
 }
