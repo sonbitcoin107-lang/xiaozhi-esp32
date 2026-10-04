@@ -8,7 +8,8 @@
             "sdkconfig_append": [
                 "CONFIG_BOARD_TYPE_ROBOTWEB_ESP32S3_ST7789=y",
                 "CONFIG_SPIRAM=y",
-                "CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y"
+                "CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y",
+                "CONFIG_OTA_URL=\"https://roboweb-voice-cloud.dinhminh.workers.dev/ota/\""
             ]
         }
     ]
