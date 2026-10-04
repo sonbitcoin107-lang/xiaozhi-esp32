@@ -868,6 +868,9 @@ elseif(CONFIG_BOARD_TYPE_LCDWIKI_ES3C35P)
 
 elseif(CONFIG_BOARD_TYPE_ROBOTWEB_ESP32S3_ST7789)
     set(BOARD_DIR "custom/robotweb-esp32s3-st7789")
+    set(BUILTIN_TEXT_FONT font_noto_sans_basic_16_4)
+    set(BUILTIN_ICON_FONT font_material_symbols_16_4)
+    set(DEFAULT_EMOJI_COLLECTION noto-color-emoji_32)
 endif()
 
 if(NOT BOARD_DIR AND NOT CMAKE_BUILD_EARLY_EXPANSION)
