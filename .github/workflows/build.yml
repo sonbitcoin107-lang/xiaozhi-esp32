@@ -6,11 +6,11 @@ on:
       board_type:
         description: Board directory
         required: false
-        default: custom/robotweb-esp32s3-st7789
-  push:
-    branches:
-      - main
-
+        default: bread-compact-wifi-lcd
+      build_name:
+        description: Build variant name
+        required: false
+        default: robotweb-cloud
 
 permissions:
   contents: read
@@ -34,22 +34,21 @@ jobs:
       - name: Build firmware
         run: |
           . /opt/esp/idf/export.sh
-          BOARD="${{ github.event.inputs.board_type || 'custom/robotweb-esp32s3-st7789' }}"
-          echo "=== Building: $BOARD ==="
-          python scripts/build.py "$BOARD" --name robotweb-esp32s3-st7789
+          BOARD="${{ github.event.inputs.board_type || 'bread-compact-wifi-lcd' }}"
+          BUILD_NAME="${{ github.event.inputs.build_name || 'robotweb-cloud' }}"
+          echo "=== Building: $BOARD (variant: $BUILD_NAME) ==="
+          python scripts/build.py "$BOARD" --name "$BUILD_NAME"
           echo "=== Build done — collecting artifacts ==="
           mkdir -p releases
-          # scripts/build.py puts merged-binary.bin in build/
+          # scripts/build.py outputs merged-binary.bin in build/
           if [ -f "build/merged-binary.bin" ]; then
-            cp build/merged-binary.bin releases/robotweb-esp32s3-st7789-merged.bin
-            echo "Copied merged-binary.bin"
+            cp build/merged-binary.bin releases/robotweb-firmware-merged.bin
+            echo "Copied build/merged-binary.bin to releases/"
           fi
-          # Also collect individual bins
+          # Also collect individual partition bins if present
           for f in build/bootloader/bootloader.bin build/partition_table/partition-table.bin build/xiaozhi.bin; do
             [ -f "$f" ] && cp "$f" releases/ && echo "Copied: $f"
           done
-          # Check for zip from scripts/build.py
-          find . -name "*.zip" 2>/dev/null | head -5 | xargs -I{} cp {} releases/ 2>/dev/null || true
           ls -lh releases/
 
       - name: Upload firmware
@@ -57,6 +56,8 @@ jobs:
         if: always()
         with:
           name: robotweb-firmware-${{ github.run_number }}
-          path: releases/
+          path: |
+            build/merged-binary.bin
+            releases/
           retention-days: 30
           if-no-files-found: warn
