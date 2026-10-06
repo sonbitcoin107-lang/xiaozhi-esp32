@@ -71,6 +71,9 @@ private:
             }
             app.ToggleChatState();
         });
+        boot_button_.OnLongPress([this]() {
+            EnterWifiConfigMode();
+        });
     }
 
 public:

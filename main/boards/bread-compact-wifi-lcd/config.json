@@ -12,7 +12,7 @@
             "name": "robotweb-cloud",
             "sdkconfig_append": [
                 "CONFIG_LCD_ST7789_240X320=y",
-                "CONFIG_OTA_URL=\"https://roboweb-voice-cloud.dinhminh.workers.dev/ota/\""
+                "CONFIG_OTA_URL=\"https://robot.minhtilab.com/ota/\""
             ]
         }
     ]
