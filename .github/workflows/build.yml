@@ -37,7 +37,7 @@ jobs:
           BOARD="${{ github.event.inputs.board_type || 'bread-compact-wifi-lcd' }}"
           BUILD_NAME="${{ github.event.inputs.build_name || 'robotweb-cloud' }}"
           echo "=== Building: $BOARD (variant: $BUILD_NAME) ==="
-          python scripts/build.py "$BOARD" --name "$BUILD_NAME"
+          python scripts/build.py "$BOARD" --name "$BUILD_NAME" --language vi-VN
           echo "=== Build done — collecting artifacts ==="
           mkdir -p releases
           # scripts/build.py outputs merged-binary.bin in build/
