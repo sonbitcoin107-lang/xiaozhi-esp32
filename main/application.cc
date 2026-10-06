@@ -249,6 +249,31 @@ void Application::Run() {
                     break;
                 }
             }
+
+            if (GetDeviceState() == kDeviceStateListening && listening_mode_ == kListeningModeAutoStop) {
+                int64_t now_us = esp_timer_get_time();
+                if (audio_service_.IsVoiceDetected()) {
+                    voice_detected_in_listening_ = true;
+                    last_voice_time_us_ = now_us;
+                } else if (voice_detected_in_listening_) {
+                    if ((now_us - last_voice_time_us_) >= 700000) {
+                        ESP_LOGI(TAG, "VAD silence detected (700ms), sending stop listening");
+                        voice_detected_in_listening_ = false;
+                        if (protocol_) {
+                            protocol_->SendStopListening();
+                        }
+                        audio_service_.EnableVoiceProcessing(false);
+                    }
+                } else {
+                    if ((now_us - listening_start_time_us_) >= 7000000) {
+                        ESP_LOGI(TAG, "No voice detected for 7s, stopping listening");
+                        if (protocol_) {
+                            protocol_->SendStopListening();
+                        }
+                        SetDeviceState(kDeviceStateIdle);
+                    }
+                }
+            }
         }
 
         if (bits & MAIN_EVENT_WAKE_WORD_DETECTED) {
@@ -1028,6 +1053,10 @@ void Application::HandleStateChangedEvent() {
             display->SetStatus(Lang::Strings::LISTENING);
             display->SetEmotion("neutral");
 
+            voice_detected_in_listening_ = false;
+            listening_start_time_us_ = esp_timer_get_time();
+            last_voice_time_us_ = listening_start_time_us_;
+
             // Make sure the audio processor is running
             if (play_popup_on_listening_ || !audio_service_.IsAudioProcessorRunning()) {
                 // For auto mode, wait for the playback queue to drain before enabling
@@ -1078,6 +1107,10 @@ void Application::StartListeningAudio() {
     // Send the start listening command
     protocol_->SendStartListening(listening_mode_);
     audio_service_.EnableVoiceProcessing(true);
+
+    voice_detected_in_listening_ = false;
+    listening_start_time_us_ = esp_timer_get_time();
+    last_voice_time_us_ = listening_start_time_us_;
 
     ConfigureWakeWordForListening();
 
