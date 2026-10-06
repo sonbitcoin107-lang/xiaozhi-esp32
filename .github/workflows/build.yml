@@ -6,11 +6,11 @@ on:
       board_type:
         description: Board directory
         required: false
-        default: bread-compact-wifi-lcd
+        default: custom/robotweb-esp32s3-st7789
       build_name:
         description: Build variant name
         required: false
-        default: robotweb-cloud
+        default: robotweb-esp32s3-st7789
 
 permissions:
   contents: read
