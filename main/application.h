@@ -151,6 +151,8 @@ private:
     bool assets_version_checked_ = false;
     bool play_popup_on_listening_ = false;  // Flag to play popup sound after state changes to listening
     bool pending_listening_start_ = false;  // Waiting for playback to drain before starting listening (auto mode)
+    uint32_t listening_idle_seconds_ = 0;   // Bộ đếm 60s tự ngủ
+    bool pending_idle_ = false;             // Cờ hoãn về Idle chờ loa xả hết
     bool voice_detected_in_listening_ = false;
     int64_t last_voice_time_us_ = 0;
     int64_t listening_start_time_us_ = 0;

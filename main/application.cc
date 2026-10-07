@@ -215,13 +215,18 @@ void Application::Run() {
         if (bits & MAIN_EVENT_PLAYBACK_DRAINED) {
             if (audio_service_.IsPlaybackIdle()) {
                 notify_player_.OnPlaybackDrained();
-            }
-            // Deferred listening start (auto mode): the playback queue has
-            // drained, so it is now safe to enable voice processing.
-            if (pending_listening_start_ && GetDeviceState() == kDeviceStateListening &&
-                audio_service_.IsPlaybackIdle()) {
-                pending_listening_start_ = false;
-                StartListeningAudio();
+                // Chuyển về Idle đúng tích tắc loa vừa dứt câu chào tạm biệt
+                if (pending_idle_) {
+                    pending_idle_ = false;
+                    ESP_LOGI(TAG, "Am thanh da dut hoan toan -> Chuyen ve Standby (Idle)");
+                    auto display = Board::GetInstance().GetDisplay();
+                    display->SetChatMessage("system", "");
+                    SetDeviceState(kDeviceStateIdle);
+                }
+                if (pending_listening_start_ && GetDeviceState() == kDeviceStateListening) {
+                    pending_listening_start_ = false;
+                    StartListeningAudio();
+                }
             }
         }
 
@@ -256,25 +261,16 @@ void Application::Run() {
                 if (voice) {
                     voice_detected_in_listening_ = true;
                     last_voice_time_us_ = now_us;
+                    listening_idle_seconds_ = 0; // Đang nói thì reset bộ đếm 60s
                 } else if (voice_detected_in_listening_) {
                     // Im lặng 800ms sau khi nói -> chốt gửi ASR
                     if ((now_us - last_voice_time_us_) >= 800000LL) {
-                        ESP_LOGI(TAG, "VAD silence detected (800ms), sending stop listening");
+                        ESP_LOGI(TAG, "VAD silence 800ms detected -> Gui stop listening");
                         voice_detected_in_listening_ = false;
                         if (protocol_) {
                             protocol_->SendStopListening();
                         }
-                        audio_service_.EnableVoiceProcessing(false);
                     }
-                }
-                // Hard Timeout 60 GIÂY (1 phút) tự ngủ độc lập
-                if ((now_us - listening_start_time_us_) >= 60000000LL) {
-                    ESP_LOGI(TAG, "No valid conversation for 60s -> Returning to Idle (Standby)");
-                    voice_detected_in_listening_ = false;
-                    if (protocol_) {
-                        protocol_->SendStopListening();
-                    }
-                    SetDeviceState(kDeviceStateIdle);
                 }
             }
         }
@@ -303,12 +299,19 @@ void Application::Run() {
             clock_ticks_++;
             auto display = Board::GetInstance().GetDisplay();
             display->UpdateStatusBar();
-
-            // Print debug info every 10 seconds
+            // Hard Timeout 60s độc lập: Nếu ở Listening 60s mà không có tương tác
+            if (GetDeviceState() == kDeviceStateListening) {
+                listening_idle_seconds_++;
+                if (listening_idle_seconds_ >= 60) {
+                    ESP_LOGI(TAG, "Listening timeout 60s -> Tu dong dong ket noi ve Idle");
+                    listening_idle_seconds_ = 0;
+                    protocol_->CloseAudioChannel();
+                }
+            } else {
+                listening_idle_seconds_ = 0;
+            }
             if (clock_ticks_ % 10 == 0) {
                 SystemInfo::PrintHeapStats();
-                // SystemInfo::PrintTaskList();
-                // SystemInfo::PrintTaskCpuUsage(pdMS_TO_TICKS(1000));
             }
         }
     }
@@ -598,9 +601,14 @@ void Application::InitializeProtocol() {
     protocol_->OnAudioChannelClosed([this, &board]() {
         board.SetPowerSaveLevel(PowerSaveLevel::LOW_POWER);
         Schedule([this]() {
-            auto display = Board::GetInstance().GetDisplay();
-            display->SetChatMessage("system", "");
-            SetDeviceState(kDeviceStateIdle);
+            if (!audio_service_.IsPlaybackIdle()) {
+                ESP_LOGI(TAG, "Loa van dang phat am thanh. Hoan chuyen Idle cho den khi xao het...");
+                pending_idle_ = true;
+            } else {
+                auto display = Board::GetInstance().GetDisplay();
+                display->SetChatMessage("system", "");
+                SetDeviceState(kDeviceStateIdle);
+            }
         });
     });
 
