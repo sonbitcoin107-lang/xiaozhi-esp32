@@ -80,6 +80,50 @@ bool AfeAudioEngine::Initialize(AudioCodec* codec, int frame_duration_ms,
         }
     }
 
+#if CONFIG_USE_AFE_WAKE_WORD
+    if (wakenet_model_name != nullptr) {
+        wake_detector_ = WakeDetector::kWakeNet;
+        for (int i = 0; i < models_->num; ++i) {
+            char* name = models_->model_name[i];
+            if (name == nullptr || strncmp(name, ESP_WN_PREFIX, strlen(ESP_WN_PREFIX)) != 0) {
+                continue;
+            }
+            auto words = esp_srmodel_get_wake_words(models_, name);
+            if (words == nullptr) {
+                continue;
+            }
+            std::stringstream stream(words);
+            std::string word;
+            while (std::getline(stream, word, ';')) {
+                if (!word.empty()) {
+                    wake_words_.push_back(word);
+                }
+            }
+        }
+#if CONFIG_SEND_WAKE_WORD_DATA
+        if (!wake_word_audio_cache_.Initialize(16000 * 2)) {
+            ESP_LOGW(TAG, "Wake-word audio upload disabled: PSRAM cache allocation failed");
+        }
+#endif
+    } else if (multinet_model_name != nullptr) {
+        wake_detector_ = WakeDetector::kMultiNet;
+        custom_wake_word_ = std::make_unique<CustomWakeWord>();
+        custom_wake_word_->OnWakeWordDetected([this](const std::string& wake_word) {
+            last_detected_wake_word_ = wake_word;
+            xEventGroupClearBits(event_group_, kWakeWordEnabled);
+            UpdateActiveState();
+            if (wake_word_detected_callback_) {
+                wake_word_detected_callback_(wake_word);
+            }
+        });
+        if (!custom_wake_word_->Initialize(codec_, models_)) {
+            ESP_LOGE(TAG, "Failed to initialize MultiNet wake-word detector");
+            custom_wake_word_.reset();
+            wake_detector_ = WakeDetector::kNone;
+            return false;
+        }
+    }
+#else
     if (multinet_model_name != nullptr) {
         wake_detector_ = WakeDetector::kMultiNet;
         custom_wake_word_ = std::make_unique<CustomWakeWord>();
@@ -122,6 +166,7 @@ bool AfeAudioEngine::Initialize(AudioCodec* codec, int frame_duration_ms,
         }
 #endif
     }
+#endif
 
     const bool needs_afe = kUseAfeForVoiceProcessing || wake_detector_ != WakeDetector::kNone;
     if (!needs_afe) {
