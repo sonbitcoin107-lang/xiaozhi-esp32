@@ -34,10 +34,10 @@ jobs:
       - name: Build firmware
         run: |
           . /opt/esp/idf/export.sh
-          BOARD="${{ github.event.inputs.board_type || 'bread-compact-wifi-lcd' }}"
-          BUILD_NAME="${{ github.event.inputs.build_name || 'robotweb-cloud' }}"
+          BOARD="${{ github.event.inputs.board_type || 'custom/robotweb-esp32s3-st7789' }}"
+          BUILD_NAME="${{ github.event.inputs.build_name || 'robotweb-esp32s3-st7789' }}"
           echo "=== Building: $BOARD (variant: $BUILD_NAME) ==="
-          python scripts/build.py "$BOARD" --name "$BUILD_NAME" --language vi-VN
+          python scripts/build.py "$BOARD" --name "$BUILD_NAME" --language vi-VN --wake-word wn9_hiesp
           echo "=== Build done — collecting artifacts ==="
           mkdir -p releases
           # scripts/build.py outputs merged-binary.bin in build/

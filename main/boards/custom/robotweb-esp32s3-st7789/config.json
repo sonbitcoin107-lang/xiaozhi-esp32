@@ -9,6 +9,10 @@
                 "CONFIG_BOARD_TYPE_ROBOTWEB_ESP32S3_ST7789=y",
                 "CONFIG_SPIRAM=y",
                 "CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y",
+                "CONFIG_USE_DEVICE_AEC=n",
+                "CONFIG_USE_SERVER_AEC=n",
+                "CONFIG_USE_AFE_WAKE_WORD=y",
+                "CONFIG_SR_WN_WN9_HIESP=y",
                 "CONFIG_OTA_URL=\"https://robot.minhtilab.com/ota/\""
             ]
         }
