@@ -38,6 +38,23 @@ jobs:
           BUILD_NAME="${{ github.event.inputs.build_name || 'robotweb-esp32s3-st7789' }}"
           echo "=== Building: $BOARD (variant: $BUILD_NAME) ==="
           python scripts/build.py "$BOARD" --name "$BUILD_NAME" --language vi-VN --wake-word wn9_hiesp
+          
+          # Tự động nhúng phân vùng Assets tùy biến của Board (nếu có assets.bin trong thư mục board)
+          ASSETS_FILE="main/boards/$BOARD/assets.bin"
+          if [ -f "$ASSETS_FILE" ] && [ -f "build/merged-binary.bin" ]; then
+            echo "=== Tự động nhúng assets tùy biến: $ASSETS_FILE vào 0x800000 ==="
+            python -c "
+          with open('build/merged-binary.bin', 'rb') as f: data = bytearray(f.read())
+          with open('$ASSETS_FILE', 'rb') as f: assets = f.read()
+          target_len = 0x800000 + len(assets)
+          if len(data) < target_len:
+              data.extend(b'\xff' * (target_len - len(data)))
+          data[0x800000:0x800000+len(assets)] = assets
+          with open('build/merged-binary.bin', 'wb') as f: f.write(data)
+            "
+            echo "Nhúng assets thành công! Kích thước file merged: $(wc -c < build/merged-binary.bin) bytes"
+          fi
+
           echo "=== Build done — collecting artifacts ==="
           mkdir -p releases
           # scripts/build.py outputs merged-binary.bin in build/
