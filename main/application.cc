@@ -252,26 +252,29 @@ void Application::Run() {
 
             if (GetDeviceState() == kDeviceStateListening && listening_mode_ == kListeningModeAutoStop) {
                 int64_t now_us = esp_timer_get_time();
-                if (audio_service_.IsVoiceDetected()) {
+                bool voice = audio_service_.IsVoiceDetected();
+                if (voice) {
                     voice_detected_in_listening_ = true;
                     last_voice_time_us_ = now_us;
                 } else if (voice_detected_in_listening_) {
-                    if ((now_us - last_voice_time_us_) >= 700000) {
-                        ESP_LOGI(TAG, "VAD silence detected (700ms), sending stop listening");
+                    // Im lặng 800ms sau khi nói -> chốt gửi ASR
+                    if ((now_us - last_voice_time_us_) >= 800000LL) {
+                        ESP_LOGI(TAG, "VAD silence detected (800ms), sending stop listening");
                         voice_detected_in_listening_ = false;
                         if (protocol_) {
                             protocol_->SendStopListening();
                         }
                         audio_service_.EnableVoiceProcessing(false);
                     }
-                } else {
-                    if ((now_us - listening_start_time_us_) >= 7000000) {
-                        ESP_LOGI(TAG, "No voice detected for 7s, stopping listening");
-                        if (protocol_) {
-                            protocol_->SendStopListening();
-                        }
-                        SetDeviceState(kDeviceStateIdle);
+                }
+                // Hard Timeout 60 GIÂY (1 phút) tự ngủ độc lập
+                if ((now_us - listening_start_time_us_) >= 60000000LL) {
+                    ESP_LOGI(TAG, "No valid conversation for 60s -> Returning to Idle (Standby)");
+                    voice_detected_in_listening_ = false;
+                    if (protocol_) {
+                        protocol_->SendStopListening();
                     }
+                    SetDeviceState(kDeviceStateIdle);
                 }
             }
         }
@@ -711,6 +714,9 @@ void Application::InitializeProtocol() {
                 if (strcmp(command->valuestring, "reboot") == 0) {
                     // Do a reboot if user requests a OTA update
                     Schedule([this]() { Reboot(); });
+                } else if (strcmp(command->valuestring, "sleep") == 0) {
+                    ESP_LOGI(TAG, "Received sleep command from server -> Going to Idle");
+                    Schedule([this]() { SetDeviceState(kDeviceStateIdle); });
                 } else {
                     ESP_LOGW(TAG, "Unknown system command: %s", command->valuestring);
                 }
