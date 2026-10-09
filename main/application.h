@@ -154,6 +154,7 @@ private:
     uint32_t listening_idle_seconds_ = 0;   // Bộ đếm 60s tự ngủ
     bool pending_idle_ = false;             // Cờ hoãn về Idle chờ loa xả hết
     bool voice_detected_in_listening_ = false;
+    int64_t voice_start_time_us_ = 0;
     int64_t last_voice_time_us_ = 0;
     int64_t listening_start_time_us_ = 0;
     int clock_ticks_ = 0;

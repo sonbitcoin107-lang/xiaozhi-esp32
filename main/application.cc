@@ -259,16 +259,24 @@ void Application::Run() {
                 int64_t now_us = esp_timer_get_time();
                 bool voice = audio_service_.IsVoiceDetected();
                 if (voice) {
-                    voice_detected_in_listening_ = true;
-                    last_voice_time_us_ = now_us;
-                    listening_idle_seconds_ = 0; // Đang nói thì reset bộ đếm 60s
-                } else if (voice_detected_in_listening_) {
-                    // Im lặng 800ms sau khi nói -> chốt gửi ASR
-                    if ((now_us - last_voice_time_us_) >= 800000LL) {
-                        ESP_LOGI(TAG, "VAD silence 800ms detected -> Gui stop listening");
-                        voice_detected_in_listening_ = false;
-                        if (protocol_) {
-                            protocol_->SendStopListening();
+                    if (voice_start_time_us_ == 0) {
+                        voice_start_time_us_ = now_us;
+                    }
+                    // Chỉ coi là người nói thật khi tiếng kéo dài liên tục >= 100ms
+                    if ((now_us - voice_start_time_us_) >= 100000LL) {
+                        voice_detected_in_listening_ = true;
+                        last_voice_time_us_ = now_us;
+                    }
+                } else {
+                    voice_start_time_us_ = 0;
+                    if (voice_detected_in_listening_) {
+                        // Dứt câu im lặng 800ms sau khi ĐÃ NÓI THẬT
+                        if ((now_us - last_voice_time_us_) >= 800000LL) {
+                            ESP_LOGI(TAG, "VAD silence 800ms detected -> Gui stop listening");
+                            voice_detected_in_listening_ = false;
+                            if (protocol_) {
+                                protocol_->SendStopListening();
+                            }
                         }
                     }
                 }
@@ -1067,7 +1075,9 @@ void Application::HandleStateChangedEvent() {
             display->SetStatus(Lang::Strings::LISTENING);
             display->SetEmotion("neutral");
 
+            voice_start_time_us_ = 0;
             voice_detected_in_listening_ = false;
+            listening_idle_seconds_ = 0;
             listening_start_time_us_ = esp_timer_get_time();
             last_voice_time_us_ = listening_start_time_us_;
 
@@ -1088,6 +1098,7 @@ void Application::HandleStateChangedEvent() {
             break;
         case kDeviceStateSpeaking:
             display->SetStatus(Lang::Strings::SPEAKING);
+            listening_idle_seconds_ = 0;
 
             if (listening_mode_ != kListeningModeRealtime) {
                 audio_service_.EnableVoiceProcessing(false);
