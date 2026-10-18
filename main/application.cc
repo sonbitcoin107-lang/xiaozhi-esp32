@@ -216,7 +216,7 @@ void Application::Run() {
             if (audio_service_.IsPlaybackIdle()) {
                 notify_player_.OnPlaybackDrained();
                 // Chuyển về Idle đúng tích tắc loa vừa dứt câu chào tạm biệt
-                if (pending_idle_) {
+                if (pending_idle_ && GetDeviceState() != kDeviceStateNotifying && !notify_player_.IsBusy()) {
                     pending_idle_ = false;
                     ESP_LOGI(TAG, "Am thanh da dut hoan toan -> Chuyen ve Standby (Idle)");
                     auto display = Board::GetInstance().GetDisplay();
@@ -308,7 +308,7 @@ void Application::Run() {
             auto display = Board::GetInstance().GetDisplay();
             display->UpdateStatusBar();
             // Hard Timeout 60s độc lập: Nếu ở Listening 60s mà không có tương tác
-            if (GetDeviceState() == kDeviceStateListening) {
+            if (GetDeviceState() == kDeviceStateListening && !notify_player_.IsBusy()) {
                 listening_idle_seconds_++;
                 if (listening_idle_seconds_ >= 60) {
                     ESP_LOGI(TAG, "Listening timeout 60s -> Tu dong dong ket noi ve Idle");
@@ -607,8 +607,14 @@ void Application::InitializeProtocol() {
     });
 
     protocol_->OnAudioChannelClosed([this, &board]() {
+        if (GetDeviceState() == kDeviceStateNotifying || notify_player_.IsBusy()) {
+            return;
+        }
         board.SetPowerSaveLevel(PowerSaveLevel::LOW_POWER);
         Schedule([this]() {
+            if (GetDeviceState() == kDeviceStateNotifying || notify_player_.IsBusy()) {
+                return;
+            }
             if (!audio_service_.IsPlaybackIdle()) {
                 ESP_LOGI(TAG, "Loa van dang phat am thanh. Hoan chuyen Idle cho den khi xao het...");
                 pending_idle_ = true;
@@ -828,6 +834,7 @@ void Application::HandleToggleChatEvent() {
     auto state = GetDeviceState();
 
     if (state == kDeviceStateNotifying) {
+        AbortSpeaking(kAbortReasonNone);
         StopNotification();
         state = kDeviceStateIdle;
     }
@@ -858,6 +865,7 @@ void Application::HandleToggleChatEvent() {
             Schedule([this, mode]() { ContinueOpenAudioChannel(mode); });
             return;
         }
+        Board::GetInstance().SetPowerSaveLevel(PowerSaveLevel::PERFORMANCE);
         SetListeningMode(mode);
     } else if (state == kDeviceStateSpeaking) {
         AbortSpeaking(kAbortReasonNone);
@@ -892,6 +900,7 @@ void Application::HandleStartListeningEvent() {
     auto state = GetDeviceState();
 
     if (state == kDeviceStateNotifying) {
+        AbortSpeaking(kAbortReasonNone);
         StopNotification();
         state = kDeviceStateIdle;
     }
@@ -917,6 +926,7 @@ void Application::HandleStartListeningEvent() {
             Schedule([this]() { ContinueOpenAudioChannel(kListeningModeManualStop); });
             return;
         }
+        Board::GetInstance().SetPowerSaveLevel(PowerSaveLevel::PERFORMANCE);
         SetListeningMode(kListeningModeManualStop);
     } else if (state == kDeviceStateSpeaking) {
         AbortSpeaking(kAbortReasonNone);
@@ -953,6 +963,7 @@ void Application::HandleWakeWordDetectedEvent() {
     if (state == kDeviceStateIdle) {
         BeginWakeWordInvoke(wake_word);
     } else if (state == kDeviceStateNotifying) {
+        AbortSpeaking(kAbortReasonWakeWordDetected);
         StopNotification();
         BeginWakeWordInvoke(wake_word);
     } else if (state == kDeviceStateSpeaking || state == kDeviceStateListening) {
@@ -1072,6 +1083,7 @@ void Application::HandleStateChangedEvent() {
             display->SetChatMessage("system", "");
             break;
         case kDeviceStateListening:
+            Board::GetInstance().SetPowerSaveLevel(PowerSaveLevel::PERFORMANCE);
             display->SetStatus(Lang::Strings::LISTENING);
             display->SetEmotion("neutral");
 
@@ -1109,6 +1121,7 @@ void Application::HandleStateChangedEvent() {
             break;
         case kDeviceStateNotifying:
             display->SetStatus(Lang::Strings::SPEAKING);
+            listening_idle_seconds_ = 0;
             audio_service_.EnableVoiceProcessing(false);
             audio_service_.EnableWakeWordDetection(audio_service_.IsAfeWakeWord());
             break;
@@ -1176,6 +1189,7 @@ void Application::StartNotification(std::string audio_url, std::vector<NotifySub
         board.SetPowerSaveLevel(PowerSaveLevel::LOW_POWER);
         return;
     }
+    pending_idle_ = false;
 
     audio_service_.ResetDecoder();
     uint32_t playback_id = ++notification_playback_id_;
