@@ -262,21 +262,23 @@ void Application::Run() {
                     if (voice_start_time_us_ == 0) {
                         voice_start_time_us_ = now_us;
                     }
-                    // Chỉ coi là người nói thật khi tiếng kéo dài liên tục >= 100ms
-                    if ((now_us - voice_start_time_us_) >= 100000LL) {
+                    // Chỉ coi là người nói thật khi tiếng kéo dài liên tục >= 200ms
+                    if ((now_us - voice_start_time_us_) >= 200000LL) {
                         voice_detected_in_listening_ = true;
                         last_voice_time_us_ = now_us;
+                        listening_idle_seconds_ = 0;
                     }
                 } else {
                     voice_start_time_us_ = 0;
                     if (voice_detected_in_listening_) {
-                        // Dứt câu im lặng 800ms sau khi ĐÃ NÓI THẬT
+                        // Dứt câu im lặng 800ms sau khi ĐÃ NÓI THẬT -> đóng thu mic và gửi stop listening
                         if ((now_us - last_voice_time_us_) >= 800000LL) {
                             ESP_LOGI(TAG, "VAD silence 800ms detected -> Gui stop listening");
                             voice_detected_in_listening_ = false;
                             if (protocol_) {
                                 protocol_->SendStopListening();
                             }
+                            audio_service_.EnableVoiceProcessing(false);
                         }
                     }
                 }
@@ -684,6 +686,10 @@ void Application::InitializeProtocol() {
                         } else {
                             SetDeviceState(kDeviceStateListening);
                         }
+                    } else if (GetDeviceState() == kDeviceStateListening &&
+                               listening_mode_ == kListeningModeAutoStop &&
+                               !audio_service_.IsAudioProcessorRunning()) {
+                        StartListeningAudio();
                     }
                 });
             } else if (strcmp(state->valuestring, "sentence_start") == 0) {
@@ -1146,6 +1152,7 @@ void Application::StartListeningAudio() {
     protocol_->SendStartListening(listening_mode_);
     audio_service_.EnableVoiceProcessing(true);
 
+    voice_start_time_us_ = 0;
     voice_detected_in_listening_ = false;
     listening_start_time_us_ = esp_timer_get_time();
     last_voice_time_us_ = listening_start_time_us_;

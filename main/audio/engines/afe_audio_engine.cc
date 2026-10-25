@@ -337,11 +337,11 @@ void AfeAudioEngine::EnableWakeWordDetection(bool enable) {
 }
 
 void AfeAudioEngine::EnableVoiceProcessing(bool enable) {
+    is_speaking_ = false;
     if (enable) {
         xEventGroupSetBits(event_group_, kVoiceProcessingEnabled);
     } else {
         xEventGroupClearBits(event_group_, kVoiceProcessingEnabled);
-        is_speaking_ = false;
     }
     UpdateActiveState();
 }
